@@ -38,6 +38,9 @@ export function CameraPanel({
   const [isStreaming, setIsStreaming] = useState(false);
   const lastWordRef = useRef<string | null>(null); // Pour filtrer les mots répétés
 
+  // Compteur de frames pour les logs
+  const frameCountRef = useRef(0);
+
   // WebSocket connection
   const { status: wsStatus, send, connect, disconnect } = useWebSocket({
     url: WS_URL,
@@ -45,21 +48,29 @@ export function CameraPanel({
       // Handle incoming word from backend
       if (typeof data === "object" && data !== null && "type" in data) {
         const message = data as { type: string; word?: string };
+        console.log("📥 Received from backend:", message);
+        
         if (message.type === "word" && message.word) {
           // Filtrer les mots répétés côté frontend
           if (message.word !== lastWordRef.current) {
+            console.log(`🆕 New word detected: "${message.word}" (previous: "${lastWordRef.current}")`);
             lastWordRef.current = message.word;
             setCurrentWord(message.word);
             onWordReceived?.(message.word);
+          } else {
+            console.log(`🔄 Same word, ignoring: "${message.word}"`);
           }
         }
       }
     },
     onConnect: () => {
-      console.log("Connected to sign language recognition backend");
+      console.log("✅ Connected to sign language recognition backend");
+      console.log("🔗 WebSocket URL:", WS_URL);
+      frameCountRef.current = 0;
     },
     onDisconnect: () => {
-      console.log("Disconnected from backend");
+      console.log("❌ Disconnected from backend");
+      console.log(`📊 Total frames sent: ${frameCountRef.current}`);
       setIsStreaming(false);
     },
   });
@@ -92,6 +103,15 @@ export function CameraPanel({
 
     // Convert to base64 JPEG
     const frameData = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
+
+    // Incrémenter le compteur
+    frameCountRef.current++;
+
+    // Log toutes les 25 frames (~1 seconde)
+    if (frameCountRef.current % 25 === 0) {
+      const sizeKB = Math.round(frameData.length / 1024);
+      console.log(`📤 Frames sent: ${frameCountRef.current} | Last frame size: ${sizeKB}KB`);
+    }
 
     // Send frame to backend
     send({

@@ -3,6 +3,7 @@
 
 import json
 import base64
+import time
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -49,9 +50,9 @@ def recognize_sign(frame_data: str) -> str | None:
     # TODO: Remplacer par ton modèle ML
     # ============================================
     
-    # Mock pour tester la connexion (renvoie "Hello" toutes les 2 secondes environ)
+    # Mock pour tester la connexion (renvoie un mot aléatoire ~toutes les 2 secondes)
     import random
-    if random.random() < 0.03:  # ~1 fois toutes les 30 frames (2 sec à 15 FPS)
+    if random.random() < 0.02:  # ~1 fois toutes les 50 frames (2 sec à 25 FPS)
         words = ["Hello", "Thank you", "Please", "Yes", "No", "Help"]
         return random.choice(words)
     
@@ -73,9 +74,16 @@ async def websocket_endpoint(websocket: WebSocket):
     Envoie: {"type": "word", "word": "Hello"}
     """
     await websocket.accept()
-    print("✅ Client connecté")
+    
+    client_info = f"{websocket.client.host}:{websocket.client.port}" if websocket.client else "unknown"
+    print(f"\n{'='*50}")
+    print(f"✅ Client connecté: {client_info}")
+    print(f"{'='*50}\n")
     
     frame_count = 0
+    words_sent = 0
+    start_time = time.time()
+    last_log_time = start_time
     
     try:
         while True:
@@ -88,23 +96,39 @@ async def websocket_endpoint(websocket: WebSocket):
                 frame_data = message.get("data")
                 timestamp = message.get("timestamp")
                 
-                # Log toutes les 25 frames (~1 seconde à 25 FPS)
-                if frame_count % 25 == 0:
-                    print(f"📹 Frames reçues: {frame_count}")
+                # Calculer la taille de l'image
+                frame_size_kb = len(frame_data) / 1024 if frame_data else 0
+                
+                # Log toutes les secondes (25 frames à 25 FPS)
+                current_time = time.time()
+                if current_time - last_log_time >= 1.0:
+                    elapsed = current_time - start_time
+                    fps = frame_count / elapsed if elapsed > 0 else 0
+                    print(f"📥 Frames: {frame_count} | FPS réel: {fps:.1f} | Taille: {frame_size_kb:.1f}KB | Mots envoyés: {words_sent}")
+                    last_log_time = current_time
                 
                 # Reconnaissance du signe
                 word = recognize_sign(frame_data)
                 
                 # Renvoyer le mot si détecté
                 if word:
-                    print(f"🗣️ Mot détecté: {word}")
+                    words_sent += 1
+                    print(f"📤 Mot envoyé: \"{word}\" (frame #{frame_count})")
                     await websocket.send_text(json.dumps({
                         "type": "word",
                         "word": word
                     }))
                     
     except WebSocketDisconnect:
-        print(f"❌ Client déconnecté (total frames: {frame_count})")
+        elapsed = time.time() - start_time
+        print(f"\n{'='*50}")
+        print(f"❌ Client déconnecté: {client_info}")
+        print(f"📊 Statistiques de session:")
+        print(f"   - Durée: {elapsed:.1f}s")
+        print(f"   - Frames reçues: {frame_count}")
+        print(f"   - FPS moyen: {frame_count/elapsed:.1f}" if elapsed > 0 else "   - FPS moyen: N/A")
+        print(f"   - Mots envoyés: {words_sent}")
+        print(f"{'='*50}\n")
     except Exception as e:
         print(f"❌ Erreur: {e}")
 
@@ -118,8 +142,11 @@ async def websocket_root(websocket: WebSocket):
 
 if __name__ == "__main__":
     import uvicorn
-    print("🚀 Démarrage du serveur...")
-    print("📡 WebSocket disponible sur: ws://localhost:8000/ws")
-    print("💡 Utilise ngrok pour exposer: ngrok http 8000")
+    print("\n" + "="*50)
+    print("🚀 Sign Language Recognition Backend")
+    print("="*50)
+    print("📡 WebSocket: ws://localhost:8000/ws")
+    print("🌐 Health check: http://localhost:8000")
+    print("💡 Expose with: ngrok http 8000")
+    print("="*50 + "\n")
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
