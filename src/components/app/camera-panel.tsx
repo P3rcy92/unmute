@@ -11,8 +11,8 @@ const BASE_WS_URL = process.env.NEXT_PUBLIC_WS_URL || null;
 const WS_URL = BASE_WS_URL 
   ? (BASE_WS_URL.endsWith("/ws") ? BASE_WS_URL : `${BASE_WS_URL}/ws`)
   : null;
-const FRAME_RATE = 15; // 15 FPS
-const FRAME_INTERVAL = 1000 / FRAME_RATE; // ~66ms
+const FRAME_RATE = 25; // 25 FPS
+const FRAME_INTERVAL = 1000 / FRAME_RATE; // 40ms
 const JPEG_QUALITY = 0.7; // 70% quality for good balance size/quality
 
 interface CameraPanelProps {

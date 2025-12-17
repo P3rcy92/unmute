@@ -60,7 +60,7 @@ wss://abc123.ngrok.io/ws
 
 ### Messages reçus (du frontend)
 
-Le frontend envoie **15 frames par seconde** :
+Le frontend envoie **25 frames par seconde** :
 
 ```json
 {
@@ -76,7 +76,7 @@ Le frontend envoie **15 frames par seconde** :
 
 ### Messages envoyés (vers le frontend)
 
-Envoie le mot reconnu (le frontend gère la déduplication) :
+Envoie le mot reconnu à **chaque frame** (le frontend gère la déduplication) :
 
 ```json
 {
@@ -87,6 +87,8 @@ Envoie le mot reconnu (le frontend gère la déduplication) :
 
 - `type`: Toujours "word"
 - `word`: Le mot reconnu par le modèle ML
+
+**Note importante** : Le frontend filtre automatiquement les mots répétés. Tu peux donc envoyer le même mot plusieurs fois, seul le premier sera traité et envoyé au TTS.
 
 ## 🧠 Intégration du modèle ML
 
@@ -125,8 +127,18 @@ Le frontend doit configurer cette variable d'environnement :
 
 ```bash
 # .env.local (côté frontend Next.js)
-NEXT_PUBLIC_WS_URL=wss://abc123.ngrok.io/ws
+NEXT_PUBLIC_WS_URL=wss://abc123.ngrok.io
 ```
+
+## 📊 Spécifications techniques
+
+| Paramètre | Valeur |
+|-----------|--------|
+| Frame rate | 25 FPS |
+| Résolution | 640x480 |
+| Format image | JPEG base64 |
+| Qualité JPEG | 70% |
+| Intervalle | 40ms |
 
 ## 🧪 Test rapide
 
@@ -134,9 +146,26 @@ NEXT_PUBLIC_WS_URL=wss://abc123.ngrok.io/ws
 2. Ouvre `http://localhost:8000` → doit afficher `{"status": "ok", ...}`
 3. Le mode mock renvoie des mots aléatoires pour tester la connexion
 
+## 🔄 Flux complet
+
+```
+┌─────────────┐      25 FPS       ┌─────────────┐
+│  FRONTEND   │ ── frames ──────► │   BACKEND   │
+│  (Next.js)  │                   │  (FastAPI)  │
+│             │ ◄── mots ──────── │   + ML      │
+└──────┬──────┘                   └─────────────┘
+       │
+       │ mot unique (filtré)
+       ▼
+┌─────────────┐
+│ ELEVENLABS  │
+│   (TTS)     │
+│      🔊     │
+└─────────────┘
+```
+
 ## 📝 Notes
 
-- Le frontend filtre les mots répétés, donc tu peux renvoyer le même mot plusieurs fois
-- Les frames arrivent à 15 FPS, donc optimise ton modèle pour traiter rapidement
+- Le frontend filtre les mots répétés → tu peux renvoyer le même mot à chaque frame
+- 25 frames/seconde = ton modèle doit traiter une frame en < 40ms idéalement
 - En production, remplace `allow_origins=["*"]` par l'URL exacte du frontend
-

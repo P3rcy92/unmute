@@ -1,13 +1,60 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { CameraPanel } from "@/components/app/camera-panel";
 import { WSStatus } from "@/components/app/ws-status";
+import { TTSTestBar } from "@/components/app/tts-test-bar";
 import type { WebSocketStatus } from "@/hooks/use-websocket";
+import { useElevenLabs } from "@/hooks/use-elevenlabs";
+import { createClient } from "@/lib/supabase/client";
+import type { VoiceId } from "@/lib/config";
 
 export default function AppPage() {
   const [wsStatus, setWsStatus] = useState<WebSocketStatus>("disconnected");
   const [lastWord, setLastWord] = useState<string | null>(null);
+  const [voiceId, setVoiceId] = useState<VoiceId>("pNInz6obpgDQGcFmaJgB"); // Default: Adam
+  const [autoSpeak, setAutoSpeak] = useState(true); // Active par défaut
+
+  // Hook ElevenLabs pour la synthèse vocale automatique
+  const { speak, status: ttsStatus } = useElevenLabs({
+    voiceId,
+    onError: (err) => console.error("TTS Error:", err),
+  });
+
+  // Charger la voix de l'utilisateur depuis ses settings
+  useEffect(() => {
+    async function loadUserVoice() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("voice_id")
+          .eq("id", user.id)
+          .single();
+        
+        if (profile?.voice_id) {
+          setVoiceId(profile.voice_id as VoiceId);
+        }
+      }
+    }
+    
+    loadUserVoice();
+  }, []);
+
+  // Callback quand un mot est reconnu par le backend ML
+  // Note: La déduplication est déjà faite dans CameraPanel (lastWordRef)
+  // Donc on ne reçoit ici QUE les nouveaux mots
+  const handleWordReceived = useCallback((word: string) => {
+    setLastWord(word);
+    
+    // Envoyer automatiquement à ElevenLabs si autoSpeak est activé
+    if (autoSpeak && word) {
+      console.log("🔊 Auto-speaking:", word);
+      speak(word);
+    }
+  }, [autoSpeak, speak]);
 
   // Map WebSocket status to display status
   const getDisplayStatus = (): "mock" | "disconnected" | "connected" => {
@@ -32,16 +79,44 @@ export default function AppPage() {
       {/* Camera - Full width */}
       <CameraPanel 
         onWsStatusChange={setWsStatus}
-        onWordReceived={(word) => setLastWord(word)}
+        onWordReceived={handleWordReceived}
       />
 
-      {/* Last recognized word (optional display) */}
+      {/* Last recognized word + TTS status */}
       {lastWord && (
-        <div className="mt-4 glass rounded-xl p-4 text-center">
-          <p className="text-sm text-muted-foreground mb-1">Dernier mot reconnu</p>
-          <p className="text-xl font-semibold">{lastWord}</p>
+        <div className="mt-4 glass rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Dernier mot reconnu</p>
+              <p className="text-2xl font-semibold">{lastWord}</p>
+            </div>
+            <div className="flex items-center gap-3">
+              {/* TTS Status indicator */}
+              {ttsStatus === "loading" && (
+                <span className="text-xs text-yellow-500">🔄 Generating...</span>
+              )}
+              {ttsStatus === "playing" && (
+                <span className="text-xs text-green-500">🔊 Playing</span>
+              )}
+              
+              {/* Auto-speak toggle */}
+              <button
+                onClick={() => setAutoSpeak(!autoSpeak)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  autoSpeak 
+                    ? "bg-primary/20 text-primary" 
+                    : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {autoSpeak ? "🔊 Auto ON" : "🔇 Auto OFF"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
+
+      {/* TTS Test Bar */}
+      <TTSTestBar voiceId={voiceId} />
 
       {/* Instructions */}
       <div className="mt-8 glass rounded-2xl p-6">

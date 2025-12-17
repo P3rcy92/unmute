@@ -88,8 +88,8 @@ async def websocket_endpoint(websocket: WebSocket):
                 frame_data = message.get("data")
                 timestamp = message.get("timestamp")
                 
-                # Log toutes les 15 frames (~1 seconde)
-                if frame_count % 15 == 0:
+                # Log toutes les 25 frames (~1 seconde à 25 FPS)
+                if frame_count % 25 == 0:
                     print(f"📹 Frames reçues: {frame_count}")
                 
                 # Reconnaissance du signe
