@@ -1,0 +1,22 @@
+# FastAPI WebSocket Server Dependencies for ASL Recognition
+
+# FastAPI and WebSocket
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+websockets>=12.0
+python-multipart>=0.0.6
+
+# PyTorch (install appropriate version for your CUDA)
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Computer Vision
+opencv-python>=4.8.0
+numpy>=1.24.0
+
+# Utilities
+python-dotenv>=1.0.0
+pyngrok>=7.0.0
+
+# Performance optimizations
+orjson>=3.9.0  # Fast JSON serialization (10-50x faster than stdlib json)

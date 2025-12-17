@@ -1,0 +1,17 @@
+# Requirements for ASL Video Inference Scripts
+
+# Deep Learning
+torch>=1.7.0
+torchvision>=0.8.0
+
+# Computer Vision
+opencv-python>=4.5.0
+
+# Numerical Computing
+numpy>=1.19.0
+
+# Web API (optional, only if using Flask API)
+flask>=2.0.0
+
+# HTTP requests (optional, only if using REST API client)
+requests>=2.25.0
